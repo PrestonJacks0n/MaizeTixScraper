@@ -6,30 +6,17 @@ nothing has to stay on at home.
 
 Watching **Western Michigan** (Sept 5) and **UCLA** (Nov 21) for 2026.
 
-## Setup
+## Status: live
 
-**1. Create a public repo and push.** Public matters: it's what makes unlimited
-Actions minutes free.
+Deployed and running. Alerts are confirmed reaching the ntfy phone app.
 
-```bash
-git remote add origin https://github.com/PrestonJacks0n/MaizeTixScraper.git
-git push -u origin main
-```
+Setup is already done — the repo is public (which is what makes Actions
+minutes free), the `MAIZETIX_NTFY_TOPIC` secret is set, and cloud runs are
+green. The topic is deliberately kept out of `config.json`: this repo is
+public, and the topic name is the only thing protecting the alert feed.
 
-**2. Add the secret.** Settings → Secrets and variables → Actions → New
-repository secret:
-
-```
-Name:   MAIZETIX_NTFY_TOPIC
-Value:  <the topic from your local .env>
-```
-
-The topic is deliberately kept out of `config.json` — this repo is public, and
-the topic name is the only thing protecting your alert feed.
-
-**3. Subscribe** to that same topic in the [ntfy](https://ntfy.sh) phone app.
-
-**4. Confirm it works.** Actions → *Watch MaizeTix* → Run workflow.
+Manual run any time: **Actions** → *Watch MaizeTix* → **Run workflow**
+(there's a dry-run checkbox).
 
 ## Watching a different game
 

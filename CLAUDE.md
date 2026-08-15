@@ -171,34 +171,43 @@ run, with a dry-run checkbox.
 
 ## Current state
 
-Rebuilt from scratch on 2026-08-15 and **verified live** against the real site.
-The 2025 version was never recovered — it lives in a private GitHub repo and this
-machine has no `gh` CLI and no stored GitHub credentials. Since that code was
-hardcoded to last season anyway, rebuilding against the current markup was the
-faster path; nothing from v1 was needed.
+**DEPLOYED AND LIVE** at https://github.com/PrestonJacks0n/MaizeTixScraper
+(public, default branch `main`). Built and shipped in one session, 2026-08-15.
 
+The 2025 version was never recovered — it's in a private repo and this machine
+had no credentials at the time. Since v1 was hardcoded to last season anyway,
+rebuilding against the current markup was the faster path; nothing from it was
+needed. (`gh` CLI is now installed at `~/.local/bin/gh` and authenticated as
+PrestonJacks0n with `repo` + `workflow` scopes, with `gh auth setup-git` done, so
+future sessions can push and manage Actions directly.)
+
+Verified end to end:
 - 63/63 tests passing against real captured pages.
-- Live run confirmed: 8 games parsed, WMU 29 listings / $107.48 low / $92.25 median,
-  UCLA 60 listings / $81.65 low / $89.10 median.
-- Alert path exercised end to end; drift detection verified by feeding the run
-  deliberately renamed markup (correctly exited 1).
-- Clean-checkout CI simulation passes with the secret supplied via env var only.
+- Two cloud runs succeeded, pulling real data: WMU 29 listings / $107.48 low /
+  $92.25 median; UCLA 60 / $81.65 / $89.10. Both correctly found nothing.
+- **ntfy confirmed by Preston on his phone** — the full chain works.
+- Actions cache proven across runs: run 2 restored state saved by run 1, so push
+  dedupe genuinely survives ephemeral runners.
+- Secret hygiene checked: `.env` 404s on GitHub, no topic string in any pushed file.
+- Drift detection verified by feeding the run renamed markup (correctly exited 1).
 
 Today's floors are nowhere near the bars, which is the correct result: at $107
 (WMU) and $81 (UCLA) there is nothing worth buying yet.
 
-**Not yet done — needs Preston, cannot be done from here:** the GitHub repo does
-not exist yet (no `gh` CLI, no credentials on this machine), so nothing is pushed
-and no Actions runs have ever executed. ntfy is also unverified on a real phone.
+**One thing not yet observed:** the first *scheduled* (cron) firing. Both green
+runs were manual `workflow_dispatch`. The workflow is registered `active` and the
+cron is valid, but GitHub delays the first scheduled run after a workflow lands —
+it had only been 3 minutes when the session ended.
 
 ## Next steps
 
-1. Create a **public** repo `MaizeTixScraper` on GitHub and push (commands in README).
-2. Add repo secret `MAIZETIX_NTFY_TOPIC` = the topic in `.env`
-   (Settings → Secrets and variables → Actions → New repository secret).
-3. Subscribe to that topic in the ntfy phone app.
-4. Actions → Watch MaizeTix → Run workflow, to confirm a real cloud run works.
-5. Watch the first day for cadence and noise.
+1. **Confirm the schedule self-fires.** `gh run list --workflow=watch.yml --event=schedule`
+   should show runs. If it's still empty hours later, check the Actions tab for a
+   banner — that's the one failure mode nothing else would catch.
+2. Watch the first day for cadence and false alarms; tune `max_price` in
+   `config.json` if it's too chatty or too quiet, then commit and push.
+3. Nothing else is required. It runs itself until the games pass, then reports
+   season-over and no-ops.
 
 ## Watch items
 
