@@ -9,6 +9,7 @@ bought within minutes by whoever happens to be looking.
 Currently watching **Western Michigan (Sept 5, 2026)** and **UCLA (Nov 21, 2026)**.
 
 **Runs on GitHub Actions, not locally** — nothing at home needs to stay on.
+Checks roughly every 10-15 minutes in practice (see Deployment).
 
 ---
 
@@ -25,7 +26,7 @@ maizetix/settings.py        config load + environment/secret overlay
 maizetix/scraper.py         fetch + parse the schedule and game pages
 maizetix/alerts.py          threshold logic + the already-alerted state file
 maizetix/notify.py          ntfy push formatting and delivery
-.github/workflows/watch.yml the every-5-minute cloud job
+.github/workflows/watch.yml the recurring cloud job (~11 min in practice)
 .github/workflows/keepalive.yml  stops GitHub disabling the schedule (see below)
 install-cron.sh             local WSL cron, kept only as an offline fallback
 tests/                      63 tests over real captured pages
@@ -53,11 +54,18 @@ strictly worse. Requests are spaced 2s apart with an identifying User-Agent.
 
 ## Deployment: GitHub Actions
 
-`.github/workflows/watch.yml` runs every 5 minutes. This is **free because the
-repo is public** — public repos get unlimited GitHub-hosted runner minutes. That
-choice is load-bearing: each run bills a full minute even though it takes ~12
-seconds, so on a private repo 5-minute checks would cost ~8,640 min/month against
-a 2,000 free tier. If this ever goes private, the interval has to drop to ~30 min.
+`.github/workflows/watch.yml` asks for every 5 minutes. **Measured reality on
+2026-08-15 was ~11 minutes between runs** — GitHub throttles scheduled workflows,
+and `*/5` is a request, not a guarantee. Plan around ~10-15 min in practice; the
+cron line is the ceiling on frequency, not the actual rate. Nothing is wrong when
+you see gaps wider than 5 minutes, and there is no free fix: shortening the cron
+does not make GitHub dispatch faster.
+
+This is **free because the repo is public** — public repos get unlimited
+GitHub-hosted runner minutes. That choice is load-bearing: each run bills a full
+minute even though it takes ~12 seconds, so on a private repo 5-minute checks
+would cost ~8,640 min/month against a 2,000 free tier. If this ever goes private,
+the interval has to drop to ~30 min.
 
 Three things make it survive unattended:
 
@@ -149,7 +157,7 @@ A listing under 75% of its threshold is tagged a "steal" and escalates to
 Dedupe lives in `state.json`: a listing pushes once, then stays quiet unless it
 drops ≥ $5 below the price you were alerted at (then it re-pushes as
 `↓ $X (was $Y)`). Without this, a cheap unsold listing would push every 5 minutes
-all day.
+all day. At the observed ~11 min cadence that's ~130 checks/day per game.
 
 ---
 
@@ -215,9 +223,11 @@ Optional, as it beds in:
 
 ## Watch items
 
-- **5 minutes is a floor, not a promise.** GitHub queues scheduled workflows and
-  delays them under load, especially on the hour. Some runs will land late; that
-  is the cost of not running locally.
+- **The real cadence is ~11 min, not 5.** Measured across the first scheduled
+  runs. GitHub throttles scheduled workflows; `*/5` is an upper bound on how
+  often it *can* run. This is the main cost of not running locally, and it is
+  not fixable for free — if a game ever justifies true 5-minute checks, run
+  `install-cron.sh` on a machine that stays awake *in addition* to Actions.
 - **Keepalive matters** — see the 60-day trap above. If it ever fails, alerts stop
   silently, which is the one failure mode the ntfy failure-push can't cover.
 - Cache eviction (7 days unused, or 10 GB repo-wide) costs at most one duplicate

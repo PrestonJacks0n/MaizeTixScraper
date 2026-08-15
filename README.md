@@ -1,8 +1,9 @@
 # MaizeTixScraper
 
 Get pushed the moment a U-M student lists a cheap football ticket on
-[MaizeTix](https://www.maizetix.com). Runs on GitHub Actions every 5 minutes, so
-nothing has to stay on at home.
+[MaizeTix](https://www.maizetix.com). Runs on GitHub Actions, so nothing has to
+stay on at home. Checks land roughly every 10-15 minutes in practice — the
+workflow asks for 5, but GitHub throttles scheduled runs.
 
 Watching **Western Michigan** (Sept 5) and **UCLA** (Nov 21) for 2026.
 
