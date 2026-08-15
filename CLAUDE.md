@@ -194,20 +194,24 @@ Verified end to end:
 Today's floors are nowhere near the bars, which is the correct result: at $107
 (WMU) and $81 (UCLA) there is nothing worth buying yet.
 
-**One thing not yet observed:** the first *scheduled* (cron) firing. Both green
-runs were manual `workflow_dispatch`. The workflow is registered `active` and the
-cron is valid, but GitHub delays the first scheduled run after a workflow lands —
-it had only been 3 minutes when the session ended.
+**The cron self-fires — confirmed.** The first scheduled run landed at 22:50:48Z,
+**18 minutes** after the workflow hit `main`, and succeeded: it restored state
+from the previous run's cache, scraped both games live, and saved state forward.
+Worth remembering for any future workflow here — GitHub's scheduler took 18 min
+to pick up a brand-new cron, which looks like a failure but isn't.
 
 ## Next steps
 
-1. **Confirm the schedule self-fires.** `gh run list --workflow=watch.yml --event=schedule`
-   should show runs. If it's still empty hours later, check the Actions tab for a
-   banner — that's the one failure mode nothing else would catch.
-2. Watch the first day for cadence and false alarms; tune `max_price` in
+Nothing required. It runs itself until the games pass, then reports season-over
+and no-ops.
+
+Optional, as it beds in:
+
+1. Watch the first day for cadence and false alarms; tune `max_price` in
    `config.json` if it's too chatty or too quiet, then commit and push.
-3. Nothing else is required. It runs itself until the games pass, then reports
-   season-over and no-ops.
+2. Sanity-check actual cadence once there's history:
+   `gh run list --workflow=watch.yml --event=schedule --limit 20`. GitHub throttles
+   scheduled runs under load, so expect gaps wider than 5 minutes at times.
 
 ## Watch items
 
