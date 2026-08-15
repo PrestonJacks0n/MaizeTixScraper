@@ -1,0 +1,84 @@
+name: Watch MaizeTix
+
+# Runs in GitHub's cloud so nothing has to stay on at home.
+#
+# Free because this repo is public -- public repos get unlimited GitHub-hosted
+# runner minutes. If you ever flip it private, the 2,000 min/month free tier
+# caps you at roughly a 30-minute interval; change the cron below if you do.
+#
+# Note that a 5-minute schedule is a floor, not a promise: GitHub queues
+# scheduled workflows and delays them under load, especially on the hour. Expect
+# some runs to land late. That's the tradeoff for not running it locally.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Scrape and report without sending any push'
+        type: boolean
+        default: false
+
+# Never let a slow run overlap the next tick -- two runs at once could both see
+# the same listing before either records it and double-push.
+concurrency:
+  group: maizetix-watch
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # state.json remembers which listings already pushed. Runners are
+      # ephemeral, so it rides in the Actions cache between runs. Cache keys are
+      # immutable, hence the rolling run_id key + prefix restore. Worst case the
+      # cache is evicted and you get one repeat notification -- not worth the
+      # commit noise of writing state back to the repo every five minutes.
+      - name: Restore alert state
+        uses: actions/cache/restore@v4
+        with:
+          path: state.json
+          key: maizetix-state-${{ github.run_id }}
+          restore-keys: |
+            maizetix-state-
+
+      - name: Check for cheap tickets
+        env:
+          MAIZETIX_NTFY_TOPIC: ${{ secrets.MAIZETIX_NTFY_TOPIC }}
+        run: |
+          python3 main.py ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      - name: Save alert state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: state.json
+          key: maizetix-state-${{ github.run_id }}
+
+      # A silent scraper is the real danger: if MaizeTix changes its markup the
+      # run fails and you'd just stop getting alerts, which looks identical to
+      # "no cheap tickets". Push on failure so silence always means silence.
+      - name: Report failure
+        if: failure()
+        env:
+          TOPIC: ${{ secrets.MAIZETIX_NTFY_TOPIC }}
+        run: |
+          curl -s \
+            -H "Title: MaizeTix watcher is broken" \
+            -H "Priority: high" \
+            -H "Tags: warning" \
+            -H "Click: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            -d "The scrape failed, so you are NOT being alerted on cheap tickets right now. Most likely the site markup changed. Open the run log to see what broke." \
+            "https://ntfy.sh/${TOPIC}"

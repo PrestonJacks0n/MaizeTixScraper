@@ -1,0 +1,18 @@
+# The ntfy topic. This repo is PUBLIC -- the topic name is the only thing
+# protecting the feed, so it must never be committed. CI reads it from the
+# MAIZETIX_NTFY_TOPIC secret instead.
+.env
+
+# Runtime state -- which listings we've already pushed. Machine-local; in CI it
+# lives in the Actions cache.
+state.json
+
+# Logs
+logs/*.log
+logs/
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.DS_Store

@@ -1,0 +1,45 @@
+{
+  "_comment": "Which games to watch and what counts as cheap. Games are matched by opponent name against the live MaizeTix schedule, so game IDs are never hardcoded and this survives a season rollover.",
+
+  "sport": "football",
+
+  "targets": [
+    {
+      "opponent": "western michigan",
+      "max_price": 45,
+      "pct_below_median": 40,
+      "mode": "and",
+      "enabled": true
+    },
+    {
+      "opponent": "ucla",
+      "max_price": 60,
+      "pct_below_median": 40,
+      "mode": "and",
+      "enabled": true
+    }
+  ],
+
+  "notify": {
+    "_topic": "Intentionally absent. This repo is public and the ntfy topic name is the only thing protecting your feed, so it comes from MAIZETIX_NTFY_TOPIC -- a gitignored .env locally, a GitHub Actions secret in CI.",
+    "ntfy_base_url": "https://ntfy.sh",
+    "priority_default": "high",
+    "priority_steal": "urgent",
+    "steal_ratio": 0.75
+  },
+
+  "scrape": {
+    "base_url": "https://www.maizetix.com",
+    "user_agent": "MaizeTixScraper/2.0 (personal ticket watcher; prestoj@umich.edu)",
+    "timeout_seconds": 20,
+    "delay_between_requests": 2.0,
+    "max_retries": 3
+  },
+
+  "behavior": {
+    "_realert": "Re-alert on an already-seen listing only if it drops at least this many dollars below the price we last alerted at.",
+    "realert_price_drop": 5.0,
+    "_expiry": "Games are skipped once their date has passed. When every enabled target is in the past, the run reports season_over so the cron job can be retired.",
+    "expire_after_game": true
+  }
+}
