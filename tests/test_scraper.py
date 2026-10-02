@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from maizetix.alerts import AlertState, Deal, effective_threshold, find_deals  # noqa: E402
-from maizetix.notify import format_deal  # noqa: E402
+from maizetix.notify import ascii_header, format_deal, push  # noqa: E402
 from maizetix.scraper import (  # noqa: E402
     Game, ScrapeError, find_game, parse_game_date, parse_game_page, parse_schedule,
 )
@@ -281,15 +281,63 @@ class TestNotificationFormat(unittest.TestCase):
         self.assertIn("was $44.00", title)
 
 
+class TestHeaderEncoding(unittest.TestCase):
+    """Regression: a non-ASCII push title used to crash the whole run.
+
+    HTTP headers are encoded latin-1, so an em dash in the Title header raised
+    UnicodeEncodeError out of urllib. It escaped push()'s narrow except clause
+    and aborted the run -- which meant real $25 UCLA listings were found and
+    then never pushed, for days.
+    """
+
+    def test_non_ascii_is_flattened(self):
+        self.assertEqual(ascii_header("\u2193 $25.00 \u2014 UCLA"), "DROP $25.00 - UCLA")
+        self.assertEqual(ascii_header("plain"), "plain")
+
+    def test_header_value_is_always_latin_1_encodable(self):
+        for raw in ("\u2014", "\u2193", "\u2026", "caf\u00e9", "\U0001f525", "ok"):
+            with self.subTest(raw=raw):
+                ascii_header(raw).encode("latin-1")
+
+    def test_shipped_titles_need_no_substitution(self):
+        games = parse_schedule(fixture("football.html"))
+        snap = parse_game_page(fixture("ucla.html"), find_game(games, "ucla"))
+        snap.listings[0].price = 18.00
+        deal = find_deals({"max_price": 20}, snap)[0][0]
+        for previous in (None, 25.00):
+            deal.previous_price = previous
+            title, _ = format_deal(deal)
+            with self.subTest(previous=previous):
+                title.encode("latin-1")
+
+    def test_a_bad_title_cannot_raise_out_of_push(self):
+        cfg = {"ntfy_base_url": "https://ntfy.invalid", "ntfy_topic": "nope"}
+        self.assertFalse(push(cfg, title="\u2014 em dash", body="b"))
+
+
 class TestShippedConfig(unittest.TestCase):
     """The config Preston actually runs -- guards against a bad hand-edit."""
 
     def setUp(self):
         self.cfg = json.loads((ROOT / "config.json").read_text())
 
-    def test_watches_wmu_and_ucla(self):
+    def test_watches_ucla_only(self):
+        # WMU was played 2026-09-05 and is off the live schedule; UCLA (Nov 21)
+        # is the only game left that Preston might make.
         opponents = {t["opponent"] for t in self.cfg["targets"] if t.get("enabled", True)}
-        self.assertEqual(opponents, {"western michigan", "ucla"})
+        self.assertEqual(opponents, {"ucla"})
+
+    def test_ucla_bar_is_a_flat_twenty_dollars(self):
+        ucla = next(t for t in self.cfg["targets"] if t["opponent"] == "ucla")
+        self.assertEqual(ucla["max_price"], 20)
+        # A percent rule would re-float the bar as the market moves. The point of
+        # this setting is that $20 is $20.
+        self.assertIsNone(ucla.get("pct_below_median"))
+
+        games = parse_schedule(fixture("football.html"))
+        snap = parse_game_page(fixture("ucla.html"), find_game(games, "ucla"))
+        threshold, _ = effective_threshold(ucla, snap)
+        self.assertAlmostEqual(threshold, 20.0)
 
     def test_every_target_resolves_against_the_live_schedule(self):
         games = parse_schedule(fixture("football.html"))

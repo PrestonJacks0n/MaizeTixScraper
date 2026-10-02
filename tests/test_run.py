@@ -70,22 +70,49 @@ class TestHealthyRun(RunHarness):
         self.assertEqual(self.pushes, [])
 
     def test_cheap_listing_pushes_once_then_stays_quiet(self):
-        # Rewrite WMU's cheapest listing to a price that clears the $45 bar.
-        self.pages["727"] = self.pages["727"].replace(
-            "<td>$107.48</td>", "<td>$38.00</td>", 1)
+        # Rewrite UCLA's cheapest listing to a price that clears the $20 bar.
+        self.pages["734"] = self.pages["734"].replace(
+            "<td>$81.65</td>", "<td>$18.00</td>", 1)
         cfg = make_config()
 
         self.assertEqual(run_module.run(cfg), 0)
         self.assertEqual(len(self.pushes), 1)
-        self.assertAlmostEqual(self.pushes[0].listing.price, 38.00)
+        self.assertAlmostEqual(self.pushes[0].listing.price, 18.00)
 
         self.pushes.clear()
         self.assertEqual(run_module.run(cfg), 0)
         self.assertEqual(self.pushes, [], "a second run must not re-push the same listing")
 
+    def test_a_listing_just_over_the_bar_stays_quiet(self):
+        # $20.01 is not $20. The whole point of the flat cap is that it is exact.
+        self.pages["734"] = self.pages["734"].replace(
+            "<td>$81.65</td>", "<td>$20.01</td>", 1)
+        self.assertEqual(run_module.run(make_config()), 0)
+        self.assertEqual(self.pushes, [])
+
+    def test_a_listing_exactly_on_the_bar_pushes(self):
+        self.pages["734"] = self.pages["734"].replace(
+            "<td>$81.65</td>", "<td>$20.00</td>", 1)
+        self.assertEqual(run_module.run(make_config()), 0)
+        self.assertEqual(len(self.pushes), 1)
+
+    def test_disabled_wmu_is_never_fetched(self):
+        # WMU is off the live schedule now; checking it would log a scary
+        # "no game matches" warning on every run.
+        fetched: list = []
+        real_fetch = run_module.fetch
+
+        def recording_fetch(url, **kwargs):
+            fetched.append(url)
+            return real_fetch(url, **kwargs)
+
+        with mock.patch.object(run_module, "fetch", side_effect=recording_fetch):
+            self.assertEqual(run_module.run(make_config()), 0)
+        self.assertFalse([u for u in fetched if u.rstrip("/").endswith("727")])
+
     def test_dry_run_pushes_nothing(self):
-        self.pages["727"] = self.pages["727"].replace(
-            "<td>$107.48</td>", "<td>$38.00</td>", 1)
+        self.pages["734"] = self.pages["734"].replace(
+            "<td>$81.65</td>", "<td>$18.00</td>", 1)
         self.assertEqual(run_module.run(make_config(), dry_run=True), 0)
         self.assertEqual(self.pushes, [])
 
@@ -110,7 +137,8 @@ class TestMarkupDrift(RunHarness):
             return page
 
         cfg = make_config()
-        cfg["targets"] = [t for t in cfg["targets"] if t["opponent"] == "western michigan"]
+        cfg["targets"] = [{"opponent": "western michigan", "max_price": 45,
+                           "enabled": True}]
         with mock.patch.object(run_module, "fetch", side_effect=only_wmu):
             self.assertEqual(run_module.run(cfg), 0)
 

@@ -5,17 +5,17 @@
 
   "targets": [
     {
+      "_note": "Played 2026-09-05 and gone from the live schedule. Kept disabled as a record of the settings; delete it whenever.",
       "opponent": "western michigan",
       "max_price": 45,
       "pct_below_median": 40,
       "mode": "and",
-      "enabled": true
+      "enabled": false
     },
     {
+      "_note": "Hard line: alert at or under $20, full stop. No pct_below_median, because that rule chases a falling market DOWN -- UCLA's median slid $89 -> $47 and kept tightening the bar just as the market got interesting.",
       "opponent": "ucla",
-      "max_price": 60,
-      "pct_below_median": 40,
-      "mode": "and",
+      "max_price": 20,
       "enabled": true
     }
   ],

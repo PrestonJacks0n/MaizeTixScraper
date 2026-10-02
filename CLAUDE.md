@@ -6,10 +6,11 @@ football ticket cheap. Built because student-section prices swing hard: Western
 Michigan sits around $107 on a $92 median, and a seller dumping one at $40 gets
 bought within minutes by whoever happens to be looking.
 
-Currently watching **Western Michigan (Sept 5, 2026)** and **UCLA (Nov 21, 2026)**.
+Currently watching **UCLA (Nov 21, 2026)** only, on a flat **$20** bar.
+Western Michigan was played 2026-09-05 and is disabled.
 
 **Runs on GitHub Actions, not locally** — nothing at home needs to stay on.
-Checks roughly every 10-15 minutes in practice (see Deployment).
+Checks roughly every 20 minutes in practice (see Deployment).
 
 ---
 
@@ -26,10 +27,10 @@ maizetix/settings.py        config load + environment/secret overlay
 maizetix/scraper.py         fetch + parse the schedule and game pages
 maizetix/alerts.py          threshold logic + the already-alerted state file
 maizetix/notify.py          ntfy push formatting and delivery
-.github/workflows/watch.yml the recurring cloud job (~11 min in practice)
+.github/workflows/watch.yml the recurring cloud job (~21 min in practice)
 .github/workflows/keepalive.yml  stops GitHub disabling the schedule (see below)
 install-cron.sh             local WSL cron, kept only as an offline fallback
-tests/                      63 tests over real captured pages
+tests/                      71 tests over real captured pages
 state.json                  runtime: ticket_id -> price last alerted (gitignored)
 ```
 
@@ -54,12 +55,18 @@ strictly worse. Requests are spaced 2s apart with an identifying User-Agent.
 
 ## Deployment: GitHub Actions
 
-`.github/workflows/watch.yml` asks for every 5 minutes. **Measured reality on
-2026-08-15 was ~11 minutes between runs** — GitHub throttles scheduled workflows,
-and `*/5` is a request, not a guarantee. Plan around ~10-15 min in practice; the
-cron line is the ceiling on frequency, not the actual rate. Nothing is wrong when
-you see gaps wider than 5 minutes, and there is no free fix: shortening the cron
-does not make GitHub dispatch faster.
+`.github/workflows/watch.yml` asks for every 5 minutes. **Measured over the first
+full day (56 scheduled runs, 2026-08-16 → 08-17): median gap 21 min, mean 25 min,
+best 10 min, worst 81 min.** GitHub throttles scheduled workflows, and `*/5` is a
+request, not a guarantee. Plan around ~20 min typical and up to ~an hour in the
+worst stretch; the cron line is the ceiling on frequency, not the actual rate.
+Nothing is wrong when you see gaps wider than 5 minutes, and there is no free
+fix: shortening the cron does not make GitHub dispatch faster.
+
+The throttling is worst in GitHub's peak hours: the 48–81 min gaps all landed
+between 18:00 and 05:00 UTC (11 AM – 10 PM PDT), i.e. exactly the daytime window
+when a seller is most likely to dump a ticket. That is the real cost of Actions
+over local cron.
 
 This is **free because the repo is public** — public repos get unlimited
 GitHub-hosted runner minutes. That choice is load-bearing: each run bills a full
@@ -135,10 +142,18 @@ Each target in `config.json` supports two rules:
 | `mode` | `"and"` (both must pass, default) or `"or"` (either passes) |
 
 `"and"` mode alerts only on the **lower** of the two bars — fewest false alarms.
-Currently:
 
-- **Western Michigan** — cap $45, or 40% under the $92.25 median ($55.35). Binding bar: **$45**.
-- **UCLA** — cap $60, or 40% under the $89.10 median ($53.46). Binding bar: **$53.46**.
+Currently there is only one rule in play, on purpose:
+
+- **UCLA** — `max_price: 20`, no `pct_below_median`. Flat bar: **$20.00**.
+- **Western Michigan** — `enabled: false`. Played 2026-09-05 and no longer on the
+  live schedule at all. Its old settings are kept in `config.json` as a record.
+
+**Why the percent rule was dropped (2026-10-02).** `pct_below_median` chases a
+falling market *downward*: UCLA's median sale slid $89.10 → $81.65 → $47.00 over
+the season, which dragged a 40%-under bar from $53.46 down to $28.20. The game got
+cheaper and the trigger got harder, which is backwards. A flat cap is immune to
+that — $20 is $20 regardless of what the market does.
 
 To watch another game, add a target with the opponent name — no code change:
 
@@ -157,7 +172,7 @@ A listing under 75% of its threshold is tagged a "steal" and escalates to
 Dedupe lives in `state.json`: a listing pushes once, then stays quiet unless it
 drops ≥ $5 below the price you were alerted at (then it re-pushes as
 `↓ $X (was $Y)`). Without this, a cheap unsold listing would push every 5 minutes
-all day. At the observed ~11 min cadence that's ~130 checks/day per game.
+all day. At the observed cadence that's ~56 checks/day per game.
 
 ---
 
@@ -190,7 +205,7 @@ PrestonJacks0n with `repo` + `workflow` scopes, with `gh auth setup-git` done, s
 future sessions can push and manage Actions directly.)
 
 Verified end to end:
-- 63/63 tests passing against real captured pages.
+- 71/71 tests passing against real captured pages.
 - Two cloud runs succeeded, pulling real data: WMU 29 listings / $107.48 low /
   $92.25 median; UCLA 60 / $81.65 / $89.10. Both correctly found nothing.
 - **ntfy confirmed by Preston on his phone** — the full chain works.
@@ -208,26 +223,65 @@ from the previous run's cache, scraped both games live, and saved state forward.
 Worth remembering for any future workflow here — GitHub's scheduler took 18 min
 to pick up a brand-new cron, which looks like a failure but isn't.
 
+**Day-2 health check (2026-08-17, 06:22 UTC): healthy.** 71/71 runs green since
+deploy, zero failures, 56 in the trailing 24h, cache restoring and saving on every
+run, both workflows still `active`. No alert has fired yet, correctly — the floors
+are roughly double the bars (WMU $105.90 low vs a $45 cap; UCLA $78.60 low vs a
+$48.99 bar). Note UCLA's median sale slid $89.10 → $81.65 in a day, which *tightens*
+its percent-based bar from $53.46 to $48.99 — the `pct_below_median` rule chases a
+falling market downward, so a softening game gets harder to trigger, not easier.
+`keepalive.yml` had never run at this point; its first fire was 2026-09-01.
+
+**Keepalive is now proven (checked 2026-10-02).** Three green scheduled runs —
+2026-09-01, 09-15 and 10-01 — each landing a real `chore: keepalive heartbeat
+[skip ci]` commit on `main`. Both workflows still report `active`, so the
+2026-10-14 60-day cutoff is handled and the UCLA game is covered.
+
 ## Next steps
 
-Nothing required. It runs itself until the games pass, then reports season-over
-and no-ops.
+Nothing required. It watches UCLA until Nov 21, then reports season-over and
+no-ops.
 
-Optional, as it beds in:
+Optional: if $20 proves too strict, raise `max_price` on the UCLA target in
+`config.json`, commit and push — the cloud job picks it up on the next tick.
+For reference, the live floor on 2026-10-02 was **$25.00** against a $47.00
+median, so the bar is about $5 under the cheapest ticket on the board.
 
-1. Watch the first day for cadence and false alarms; tune `max_price` in
-   `config.json` if it's too chatty or too quiet, then commit and push.
-2. Sanity-check actual cadence once there's history:
-   `gh run list --workflow=watch.yml --event=schedule --limit 20`. GitHub throttles
-   scheduled runs under load, so expect gaps wider than 5 minutes at times.
+## The 2026-10-02 outage: a crash, not a dead game
+
+Scheduled runs started failing in late September. The obvious theory — WMU is in
+the past, so the script chokes on it — was **wrong**: a missing game is handled,
+it logs `no game on the schedule matches 'western michigan' -- skipping` and
+carries on.
+
+The real fault was in `notify.push()`. UCLA's market had softened enough that
+listings finally cleared the bar ($25.00 floor against a $28.20 percent-based bar),
+so the code reached a code path it had never executed in production: formatting
+and sending an actual deal alert. The title contained an em dash, HTTP headers are
+encoded **latin-1**, and urllib raised `UnicodeEncodeError` — which `push()`'s
+narrow `except (urllib.error.URLError, OSError)` did not catch. It propagated out
+of `run()` and exited 1.
+
+Two bad consequences, both now fixed:
+
+1. **Real cheap tickets were found and never pushed** — for days. The one failure
+   mode the alerting was built to prevent, caused by the alerting itself.
+2. The failure alert fired every run and read "the site markup changed", which
+   pointed the investigation at the scraper instead of the notifier.
+
+Fixes: `ascii_header()` flattens header values, push titles are plain ASCII
+(`DROP $25.00 (was $44.00) - ...`), and `push()` now catches `Exception` so no
+notification problem can ever abort a run again. Four regression tests cover it,
+including one asserting the shipped title format is latin-1 encodable.
 
 ## Watch items
 
-- **The real cadence is ~11 min, not 5.** Measured across the first scheduled
-  runs. GitHub throttles scheduled workflows; `*/5` is an upper bound on how
-  often it *can* run. This is the main cost of not running locally, and it is
-  not fixable for free — if a game ever justifies true 5-minute checks, run
-  `install-cron.sh` on a machine that stays awake *in addition* to Actions.
+- **The real cadence is ~21 min median, not 5** — and it degrades to 48–81 min
+  during US daytime. Measured across a full day, 56 runs. GitHub throttles
+  scheduled workflows; `*/5` is an upper bound on how often it *can* run. This is
+  the main cost of not running locally, and it is not fixable for free — if a game
+  ever justifies true 5-minute checks, run `install-cron.sh` on a machine that
+  stays awake *in addition* to Actions.
 - **Keepalive matters** — see the 60-day trap above. If it ever fails, alerts stop
   silently, which is the one failure mode the ntfy failure-push can't cover.
 - Cache eviction (7 days unused, or 10 GB repo-wide) costs at most one duplicate
@@ -236,7 +290,11 @@ Optional, as it beds in:
   advertised-vs-parsed count check is what actually catches drift at runtime; if
   it fires, re-capture `tests/fixtures/` and diff.
 - Median Sale is the median of *completed sales*, not current listings — it can
-  sit below the live floor (WMU: $92.25 median vs $107.48 lowest). That's why the
-  `max_price` cap is doing the work on WMU.
+  sit below the live floor (WMU: $92.25 median vs $107.48 lowest). That's part of
+  why the flat `max_price` cap now does all the work.
+- **Never put a non-ASCII character in a push title.** HTTP headers are encoded
+  latin-1, so urllib raises `UnicodeEncodeError` on one — see the 2026-10-02
+  outage below. `notify.ascii_header()` now scrubs it and `push()` catches
+  everything, but the titles themselves are plain ASCII too.
 - `install-cron.sh` still works for a local WSL cron, but it's a fallback only —
   the whole point of the move to Actions was not depending on this machine.

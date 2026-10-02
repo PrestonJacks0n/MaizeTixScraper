@@ -2,10 +2,11 @@
 
 Get pushed the moment a U-M student lists a cheap football ticket on
 [MaizeTix](https://www.maizetix.com). Runs on GitHub Actions, so nothing has to
-stay on at home. Checks land roughly every 10-15 minutes in practice — the
-workflow asks for 5, but GitHub throttles scheduled runs.
+stay on at home. Checks land roughly every 20 minutes in practice (sometimes up
+to an hour) — the workflow asks for 5, but GitHub throttles scheduled runs.
 
-Watching **Western Michigan** (Sept 5) and **UCLA** (Nov 21) for 2026.
+Watching **UCLA** (Nov 21, 2026) on a flat **$20** bar — push me if any
+ticket hits $20 or less. Western Michigan has been played and is disabled.
 
 ## Status: live
 
