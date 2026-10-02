@@ -195,57 +195,54 @@ run, with a dry-run checkbox.
 ## Current state
 
 **DEPLOYED AND LIVE** at https://github.com/PrestonJacks0n/MaizeTixScraper
-(public, default branch `main`). Built and shipped in one session, 2026-08-15.
+(public, default branch `main`). Built 2026-08-15; retargeted to UCLA-only on a
+flat $20 bar 2026-10-02.
 
-The 2025 version was never recovered — it's in a private repo and this machine
-had no credentials at the time. Since v1 was hardcoded to last season anyway,
-rebuilding against the current markup was the faster path; nothing from it was
-needed. (`gh` CLI is now installed at `~/.local/bin/gh` and authenticated as
-PrestonJacks0n with `repo` + `workflow` scopes, with `gh auth setup-git` done, so
-future sessions can push and manage Actions directly.)
+Watching **UCLA (Nov 21, 2026)** and nothing else. Bar is a flat **$20.00**.
+Western Michigan is `enabled: false` — played 2026-09-05 and gone from the live
+schedule entirely (the schedule is down to 4 games).
 
-Verified end to end:
+Verified as of 2026-10-02:
 - 71/71 tests passing against real captured pages.
-- Two cloud runs succeeded, pulling real data: WMU 29 listings / $107.48 low /
-  $92.25 median; UCLA 60 / $81.65 / $89.10. Both correctly found nothing.
-- **ntfy confirmed by Preston on his phone** — the full chain works.
-- Actions cache proven across runs: run 2 restored state saved by run 1, so push
-  dedupe genuinely survives ephemeral runners.
-- Secret hygiene checked: `.env` 404s on GitHub, no topic string in any pushed file.
-- Drift detection verified by feeding the run renamed markup (correctly exited 1).
+- Cloud run `36976679933` green: UCLA only, 275 listings, low $25.00, median sale
+  $47.00, bar $20.00, correctly silent. No WMU warning in the log.
+- Local `--dry-run` agrees with the cloud run.
+- **Keepalive is proven.** Three green scheduled runs (2026-09-01, 09-15, 10-01),
+  each landing a real `chore: keepalive heartbeat [skip ci]` commit on `main`.
+  Both workflows report `active`, so the 2026-10-14 60-day cutoff is handled and
+  the UCLA game is covered. This was the last untested link; it's closed.
+- `MAIZETIX_NTFY_TOPIC` secret still set (since 2026-08-15). Local topic lives in
+  the gitignored `.env`. Secret hygiene holds — no topic string in any pushed file.
 
-Today's floors are nowhere near the bars, which is the correct result: at $107
-(WMU) and $81 (UCLA) there is nothing worth buying yet.
+**The market has softened a lot and that matters.** UCLA's median sale slid
+$89.10 → $81.65 → $47.00 across the season, and the live floor is $25.00. The $20
+bar is only ~$5 under the cheapest ticket on the board, so expect genuine silence
+rather than assuming a break. Preston set $20 as a deliberate hard line after the
+percent rule proved perverse (see Configuring what counts as cheap).
 
-**The cron self-fires — confirmed.** The first scheduled run landed at 22:50:48Z,
-**18 minutes** after the workflow hit `main`, and succeeded: it restored state
-from the previous run's cache, scraped both games live, and saved state forward.
-Worth remembering for any future workflow here — GitHub's scheduler took 18 min
-to pick up a brand-new cron, which looks like a failure but isn't.
+**Alerts have never actually fired for a real deal.** The one time listings
+cleared the bar, the push crashed — see the outage section below. The notifier's
+happy path is therefore still unproven in production against a live deal; the
+ntfy chain itself is confirmed (Preston got pushes on his phone, and the
+"watcher is broken" alerts landed repeatedly during the outage).
 
-**Day-2 health check (2026-08-17, 06:22 UTC): healthy.** 71/71 runs green since
-deploy, zero failures, 56 in the trailing 24h, cache restoring and saving on every
-run, both workflows still `active`. No alert has fired yet, correctly — the floors
-are roughly double the bars (WMU $105.90 low vs a $45 cap; UCLA $78.60 low vs a
-$48.99 bar). Note UCLA's median sale slid $89.10 → $81.65 in a day, which *tightens*
-its percent-based bar from $53.46 to $48.99 — the `pct_below_median` rule chases a
-falling market downward, so a softening game gets harder to trigger, not easier.
-`keepalive.yml` had never run at this point; its first fire was 2026-09-01.
-
-**Keepalive is now proven (checked 2026-10-02).** Three green scheduled runs —
-2026-09-01, 09-15 and 10-01 — each landing a real `chore: keepalive heartbeat
-[skip ci]` commit on `main`. Both workflows still report `active`, so the
-2026-10-14 60-day cutoff is handled and the UCLA game is covered.
+Durable env facts: `gh` is installed at `~/.local/bin/gh`, authed as
+PrestonJacks0n with `repo` + `workflow` scopes and `gh auth setup-git` done, so
+sessions can push and drive Actions directly. GitHub's scheduler took ~18 min to
+pick up a brand-new cron back in August — looks like a failure, isn't.
 
 ## Next steps
 
 Nothing required. It watches UCLA until Nov 21, then reports season-over and
 no-ops.
 
-Optional: if $20 proves too strict, raise `max_price` on the UCLA target in
-`config.json`, commit and push — the cloud job picks it up on the next tick.
-For reference, the live floor on 2026-10-02 was **$25.00** against a $47.00
-median, so the bar is about $5 under the cheapest ticket on the board.
+Optional:
+
+1. If $20 proves too strict as the game nears, raise `max_price` on the UCLA
+   target in `config.json`, commit and push — the cloud job picks it up next tick.
+   The floor to beat on 2026-10-02 was $25.00.
+2. If an alert ever does fire, check the notification actually rendered (the
+   deal-push path has still never run successfully in production).
 
 ## The 2026-10-02 outage: a crash, not a dead game
 
