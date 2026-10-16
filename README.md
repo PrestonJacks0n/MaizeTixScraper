@@ -5,12 +5,11 @@ Get pushed the moment a U-M student lists a cheap football ticket on
 stay on at home. Checks land roughly every 20 minutes in practice (sometimes up
 to an hour) — the workflow asks for 5, but GitHub throttles scheduled runs.
 
-Watching **UCLA** (Nov 21, 2026) on a flat **$20** bar — push me if any
-ticket hits $20 or less. Western Michigan has been played and is disabled.
+## Status: deactivated (2026-10-15)
 
-## Status: live
-
-Deployed and running. Alerts are confirmed reaching the ntfy phone app.
+Job done — the tickets were bought. Both workflows are disabled in the Actions
+tab; the code is kept as-is for a future season. Re-enable with
+`gh workflow enable "Watch MaizeTix"` and `gh workflow enable "Keepalive"`.
 
 Setup is already done — the repo is public (which is what makes Actions
 minutes free), the `MAIZETIX_NTFY_TOPIC` secret is set, and cloud runs are

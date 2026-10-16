@@ -6,11 +6,12 @@ football ticket cheap. Built because student-section prices swing hard: Western
 Michigan sits around $107 on a $92 median, and a seller dumping one at $40 gets
 bought within minutes by whoever happens to be looking.
 
-Currently watching **UCLA (Nov 21, 2026)** only, on a flat **$20** bar.
-Western Michigan was played 2026-09-05 and is disabled.
+**RESOLVED / DEACTIVATED 2026-10-15** — Preston got the tickets he needed. Both
+GitHub Actions workflows are disabled; the code is kept intact for a future season.
+Last config: UCLA (Nov 21, 2026) on a flat $20 bar; WMU disabled.
 
-**Runs on GitHub Actions, not locally** — nothing at home needs to stay on.
-Checks roughly every 20 minutes in practice (see Deployment).
+**Ran on GitHub Actions, not locally** — nothing at home needed to stay on.
+Checked roughly every 20 minutes in practice (see Deployment).
 
 ---
 
@@ -194,55 +195,29 @@ run, with a dry-run checkbox.
 
 ## Current state
 
-**DEPLOYED AND LIVE** at https://github.com/PrestonJacks0n/MaizeTixScraper
-(public, default branch `main`). Built 2026-08-15; retargeted to UCLA-only on a
-flat $20 bar 2026-10-02.
+**RESOLVED — deactivated 2026-10-15.** Preston obtained the tickets he needed, so
+the watcher was shut off. Nothing runs anywhere:
 
-Watching **UCLA (Nov 21, 2026)** and nothing else. Bar is a flat **$20.00**.
-Western Michigan is `enabled: false` — played 2026-09-05 and gone from the live
-schedule entirely (the schedule is down to 4 games).
-
-Verified as of 2026-10-02:
-- 71/71 tests passing against real captured pages.
-- Cloud run `36976679933` green: UCLA only, 275 listings, low $25.00, median sale
-  $47.00, bar $20.00, correctly silent. No WMU warning in the log.
-- Local `--dry-run` agrees with the cloud run.
-- **Keepalive is proven.** Three green scheduled runs (2026-09-01, 09-15, 10-01),
-  each landing a real `chore: keepalive heartbeat [skip ci]` commit on `main`.
-  Both workflows report `active`, so the 2026-10-14 60-day cutoff is handled and
-  the UCLA game is covered. This was the last untested link; it's closed.
-- `MAIZETIX_NTFY_TOPIC` secret still set (since 2026-08-15). Local topic lives in
-  the gitignored `.env`. Secret hygiene holds — no topic string in any pushed file.
-
-**The market has softened a lot and that matters.** UCLA's median sale slid
-$89.10 → $81.65 → $47.00 across the season, and the live floor is $25.00. The $20
-bar is only ~$5 under the cheapest ticket on the board, so expect genuine silence
-rather than assuming a break. Preston set $20 as a deliberate hard line after the
-percent rule proved perverse (see Configuring what counts as cheap).
-
-**Alerts have never actually fired for a real deal.** The one time listings
-cleared the bar, the push crashed — see the outage section below. The notifier's
-happy path is therefore still unproven in production against a live deal; the
-ntfy chain itself is confirmed (Preston got pushes on his phone, and the
-"watcher is broken" alerts landed repeatedly during the outage).
+- `Watch MaizeTix` and `Keepalive` are both `disabled_manually` on GitHub
+  (`gh workflow disable`). No scheduled runs, no heartbeat commits. The last
+  scheduled watch run (2026-10-16 06:21 UTC) was green.
+- No local cron (`crontab -l` is empty; `install-cron.sh` was never installed).
+- Code, tests (71/71 at last run), `config.json`, and the `MAIZETIX_NTFY_TOPIC`
+  secret are all left in place. The repo stays public.
 
 Durable env facts: `gh` is installed at `~/.local/bin/gh`, authed as
-PrestonJacks0n with `repo` + `workflow` scopes and `gh auth setup-git` done, so
-sessions can push and drive Actions directly. GitHub's scheduler took ~18 min to
-pick up a brand-new cron back in August — looks like a failure, isn't.
+PrestonJacks0n with `repo` + `workflow` scopes and `gh auth setup-git` done.
 
 ## Next steps
 
-Nothing required. It watches UCLA until Nov 21, then reports season-over and
-no-ops.
+Nothing. To revive for a future season:
 
-Optional:
-
-1. If $20 proves too strict as the game nears, raise `max_price` on the UCLA
-   target in `config.json`, commit and push — the cloud job picks it up next tick.
-   The floor to beat on 2026-10-02 was $25.00.
-2. If an alert ever does fire, check the notification actually rendered (the
-   deal-push path has still never run successfully in production).
+1. Update `config.json` targets (opponent names, `max_price`, `enabled: true`).
+   The schedule page is re-resolved live, so no game ids are needed.
+2. `gh workflow enable "Watch MaizeTix" && gh workflow enable "Keepalive"`.
+3. Mind the 60-day trap: with keepalive off, GitHub may also auto-disable the
+   workflows for inactivity — re-enabling is the same command either way.
+4. Re-capture `tests/fixtures/` if the site changed, and run `--dry-run` first.
 
 ## The 2026-10-02 outage: a crash, not a dead game
 
